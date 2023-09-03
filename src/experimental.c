@@ -103,6 +103,7 @@ pvector generate_poisson_points(int grid_width, int grid_height) {
 							position = (Vector2) { inline_position.x + (grid_x * CELLSIZE), inline_position.y + (grid_y * CELLSIZE) };
 						} else {
 							position_fixed = true;
+							printf("Position fixed!\n");
 						}
 					}
 
@@ -117,7 +118,6 @@ pvector generate_poisson_points(int grid_width, int grid_height) {
 
 	return grid;
 }
-
 
 //------------------------------------------------------------------------------
 
