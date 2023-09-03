@@ -52,12 +52,13 @@ Vector2 random_point(int domain_x_max, int domain_y_max) {
 
 // return a vector of the grid position of a point
 Vector2 grid_position(Vector2 vec) {
-	return (Vector2) { floor(vec.x / CELLSIZE), floor(vec.y / CELLSIZE) };
+	return (Vector2) { floorf(vec.x / CELLSIZE), floorf(vec.y / CELLSIZE) };
 }
 
 // return the grid index of a point
 int grid_index(Vector2 vec, int grid_width, int grid_height) {
 	Vector2 v = grid_position(vec);
+	(void) grid_height; // wasn't technically needed, but included for whatever reason
 
 	return v.x + (v.y * grid_width);
 }
@@ -97,24 +98,27 @@ pvector generate_poisson_points(int grid_width, int grid_height) {
 			float magnitude = ((float) rand() / (float) RAND_MAX) * r + r;
 			float theta = ((float) rand() / (float) RAND_MAX) * (2 * PI);
 
-			Vector2 candidate = (Vector2) { (int) floor(magnitude * cos(theta)) + xi.x, (int) floor(magnitude * sin(theta)) + xi.y};
+			Vector2 candidate = (Vector2) { (int) floorf(magnitude * cosf(theta)) + xi.x, (int) floor(magnitude * sinf(theta)) + xi.y};
 			int candidate_index = grid_index(candidate, grid_width, grid_height);
-			Vector2 candidate_grid_position = grid_position(candidate);
 
 			for(int gy = -2; gy < 3; gy++) {
 				for(int gx = -2; gx < 3; gx++) {
 					int neighbor_index = candidate_index + gx + (gy * grid_width);
 
-					Vector2 neighbor = grid.data[neighbor_index];
+					// check if neighbor_index is within bounds
+					if(neighbor_index >= 0 && neighbor_index < grid_size) {
 
-					float distance = sqrt(pow(candidate.x - neighbor.x, 2) + pow(candidate.y - neighbor.y, 2));
+						Vector2 neighbor = grid.data[neighbor_index];
 
-					if((neighbor.x == -1 && neighbor.y == -1) || (distance > r)) {
-						// this cell is good!
-						// there is nothing to do except wait...
-					} else {
-						// this candidate is no good
-						goto point_failed;
+						float distance = sqrtf(pow(candidate.x - neighbor.x, 2) + pow(candidate.y - neighbor.y, 2));
+
+						if((neighbor.x == -1 && neighbor.y == -1) || (distance > r)) {
+							// this cell is good!
+							// there is nothing to do except wait...
+						} else {
+							// this candidate is no good
+							goto point_failed;
+						}
 					}
 				}
 			}
@@ -141,16 +145,8 @@ pvector generate_poisson_points(int grid_width, int grid_height) {
 int main(void) {
 
 	r = CELLSIZE * sqrt(n); // as previously defined
-	pvector poisson_points_pvector = generate_poisson_points(WIDTH / CELLSIZE, HEIGHT / CELLSIZE);
-	int poisson_point_count = pvector_size(&poisson_points_pvector);
-
-	Vector2 poisson_points[poisson_point_count];
-
-	// convert to C array because pvector_at is pretty slow compared to array access
-	for(int i = 0; i < poisson_point_count; i++) {
-		poisson_points[i] = *(pvector_at(&poisson_points_pvector, (intptr_t) i));
-	}
-
+	pvector poisson_points = generate_poisson_points(WIDTH / CELLSIZE, HEIGHT / CELLSIZE);
+	int poisson_point_count = pvector_size(&poisson_points);
 
 	printf("Poisson points are finished generating!\n");
 
@@ -163,7 +159,7 @@ int main(void) {
 		BeginTextureMode(target);
 
 			for(int i = 0; i < poisson_point_count; i++) {
-				Vector2 px = poisson_points[i];
+				Vector2 px = poisson_points.data[i];
 				if(px.x != -1 && px.y != -1) {
 					DrawCircleV(px, 10, RED);
 				}
