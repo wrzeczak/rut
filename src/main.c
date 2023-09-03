@@ -8,9 +8,11 @@
 
 const int HEIGHT = 900;
 const int WIDTH = 1600;
-const int CELLSIZE = 20;
+const int CELLSIZE = 40;
 
 #define NOSAMPLE (Vector2) { -1, -1 }
+
+#define ACTIVE_LIST_MAX 50000
 
 const int n = 2;
 float r; // such that the cell size (GRIDSIZE) can be 20
@@ -67,10 +69,10 @@ int grid_index(Vector2 vec, int grid_width, int grid_height) {
 
 pvector generate_poisson_points(int grid_width, int grid_height) {
 	pvector grid = { 0 };
-	int grid_size = grid_width * grid_height;
+	unsigned int grid_size = grid_width * grid_height;
 
 	// initalize NOSAMPLE in every grid space
-	for(int i = 0; i < grid_size; i++) {
+	for(int i = 0; (unsigned int) i < grid_size; i++) {
 		pvector_push(&grid, NOSAMPLE);
 	}
 
@@ -81,17 +83,17 @@ pvector generate_poisson_points(int grid_width, int grid_height) {
 	pvector active_list = { 0 };
 	pvector_push(&active_list, initial_sample);
 
-	while(((int) pvector_size(&active_list) > 0)) {
+	while(((int) pvector_size(&active_list) > 0) && ((int) pvector_size(&active_list) < ACTIVE_LIST_MAX)) {
 
 		printf("Made it to the while() loop!\n");
 
-		int active_list_length = (int) pvector_size(&active_list);
+		unsigned int active_list_length = (unsigned int) pvector_size(&active_list);
 
 		printf("ACTIVE LIST LENGTH: %d\n", active_list_length);
 
-		int random_index = rand() % active_list_length;
+		unsigned int random_index = rand() % active_list_length; // not very random, i know, but bear with me
 
-		Vector2 xi = active_list.data[random_index]; // select a random point from the active list
+		Vector2 xi = *(pvector_at(&active_list, random_index)); // select a random point from the active list
 
 		int failed_candidates = 0;
 		for(int i = 0; i < k; i++) {
@@ -99,16 +101,18 @@ pvector generate_poisson_points(int grid_width, int grid_height) {
 			float theta = ((float) rand() / (float) RAND_MAX) * (2 * PI);
 
 			Vector2 candidate = (Vector2) { (int) floorf(magnitude * cosf(theta)) + xi.x, (int) floor(magnitude * sinf(theta)) + xi.y};
-			int candidate_index = grid_index(candidate, grid_width, grid_height);
+			unsigned int candidate_index = grid_index(candidate, grid_width, grid_height);
+
+			if(candidate_index > (unsigned int) grid_size) continue; // something fucky has gone on, just skip this candidate
 
 			for(int gy = -2; gy < 3; gy++) {
 				for(int gx = -2; gx < 3; gx++) {
-					int neighbor_index = candidate_index + gx + (gy * grid_width);
+					unsigned int neighbor_index = candidate_index + gx + (gy * grid_width);
 
 					// check if neighbor_index is within bounds
-					if(neighbor_index >= 0 && neighbor_index < grid_size) {
+					if(neighbor_index < (unsigned int) grid_size) {
 
-						Vector2 neighbor = grid.data[neighbor_index];
+						Vector2 neighbor = *(pvector_at(&grid, neighbor_index));
 
 						float distance = sqrtf(pow(candidate.x - neighbor.x, 2) + pow(candidate.y - neighbor.y, 2));
 
@@ -126,11 +130,15 @@ pvector generate_poisson_points(int grid_width, int grid_height) {
 			// point succeeded
 			pvector_push(&active_list, candidate);
 			grid.data[candidate_index] = candidate;
+			continue;
+
 			point_failed:
 				failed_candidates++;
 		}
 
 		// remove xi+
+		unsigned int xi_grid_index = grid_index(xi, grid_width, grid_height);
+		if(xi_grid_index < grid_size) grid.data[xi_grid_index] = xi;
 		pvector_erase_n(&active_list, random_index, 1);
 	}
 
@@ -138,9 +146,6 @@ pvector generate_poisson_points(int grid_width, int grid_height) {
 }
 
 //------------------------------------------------------------------------------
-
-#define i_implement
-#include "stc/cstr.h"
 
 int main(void) {
 
@@ -156,7 +161,16 @@ int main(void) {
 	RenderTexture2D target = LoadRenderTexture(WIDTH, HEIGHT);
 
 	while(!WindowShouldClose()) {
+
+		if(IsKeyPressed(KEY_SPACE)) {
+			pvector_clear(&poisson_points);
+			poisson_points = generate_poisson_points(WIDTH / CELLSIZE, HEIGHT / CELLSIZE);
+			poisson_point_count = pvector_size(&poisson_points);
+			printf("Poisson points regenerated!\n");
+		}
+
 		BeginTextureMode(target);
+			ClearBackground(BLACK);
 
 			for(int i = 0; i < poisson_point_count; i++) {
 				Vector2 px = poisson_points.data[i];
