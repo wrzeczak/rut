@@ -12,7 +12,7 @@ const int CELLSIZE = 20;
 
 #define NOSAMPLE (Vector2) { -1, -1 }
 
-#define ACTIVE_LIST_MAX 50000
+#define FIX_ATTEMPT_MAX 10000
 
 const int n = 2;
 float r; // such that the cell size (GRIDSIZE) can be 20
@@ -67,7 +67,7 @@ int grid_index(Vector2 vec, int grid_width, int grid_height) {
 
 //------------------------------------------------------------------------------
 
-pvector generate_poisson_points(int grid_width, int grid_height) {
+pvector generate_random_points(int grid_width, int grid_height) {
 	pvector grid = { 0 };
 
 	int grid_size = grid_width * grid_height;
@@ -92,7 +92,7 @@ pvector generate_poisson_points(int grid_width, int grid_height) {
 				if(i + i_translate >= 0 && (i + i_translate) < grid_size) {
 					Vector2 neighbor = *(pvector_at(&grid, i + i_translate));
 
-					for(int j = 0; j < 20; j++) {
+					for(int j = 0; j < FIX_ATTEMPT_MAX; j++) {
 						float distance = sqrtf(pow(neighbor.x - position.x, 2) + pow(neighbor.y - position.y, 2));
 
 						if(distance < r) {
@@ -124,7 +124,7 @@ pvector generate_poisson_points(int grid_width, int grid_height) {
 int main(void) {
 
 	r = CELLSIZE * sqrt(n); // as previously defined
-	pvector poisson_points = generate_poisson_points(WIDTH / CELLSIZE, HEIGHT / CELLSIZE);
+	pvector poisson_points = generate_random_points(WIDTH / CELLSIZE, HEIGHT / CELLSIZE);
 	int poisson_point_count = pvector_size(&poisson_points);
 
 	printf("Poisson points are finished generating!\n");

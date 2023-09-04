@@ -13,6 +13,7 @@ const int CELLSIZE = 20;
 #define NOSAMPLE (Vector2) { -1, -1 }
 
 #define ACTIVE_LIST_MAX 50000
+#define TRIANGULATION_ITER_MAX 5000
 
 const int n = 2;
 float r; // such that the cell size (GRIDSIZE) can be 20
@@ -65,6 +66,16 @@ int grid_index(Vector2 vec, int grid_width, int grid_height) {
 	return v.x + (v.y * grid_width);
 }
 
+float distance(Vector2 a, Vector2 b) {
+	return sqrtf(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
+}
+
+float index_distance(pvector * grid, int a, int b) {
+	Vector2 va = *(pvector_at(grid, a));
+	Vector2 vb = *(pvector_at(grid, b));
+	return distance(va, vb);
+}
+
 //------------------------------------------------------------------------------
 
 pvector generate_poisson_points(int grid_width, int grid_height) {
@@ -103,7 +114,6 @@ pvector generate_poisson_points(int grid_width, int grid_height) {
 							position = (Vector2) { inline_position.x + (grid_x * CELLSIZE), inline_position.y + (grid_y * CELLSIZE) };
 						} else {
 							position_fixed = true;
-							printf("Position fixed!\n");
 						}
 					}
 
@@ -120,6 +130,80 @@ pvector generate_poisson_points(int grid_width, int grid_height) {
 }
 
 //------------------------------------------------------------------------------
+
+// return 2 * pvector_size(&points) if it for whatever reason fails
+unsigned int closest_to(pvector points, unsigned int excluded_indices[], unsigned int excluded_index_count,  unsigned int index, int grid_width, int grid_height) {
+	Vector2 testing_point = *(pvector_at(&points, index));
+
+	float shortest_distance = sqrtf((float) ( HEIGHT * HEIGHT + WIDTH * WIDTH ));
+	unsigned int shortest_distance_index = 2 * (int) pvector_size(&points);
+
+	for(int gx = -1; gx < 2; gx++) {
+		for(int gy = -1; gy < 2; gy++) {
+			int neighbor_offset = gx + (gy * grid_width);
+
+			bool using_excluded_value = false;
+			for(int i = 0; i < (int) excluded_index_count; i++) {
+				if(((int) index + neighbor_offset) == excluded_indices[i]) using_excluded_value = true;
+			}
+
+			if(!using_excluded_value) {
+
+				if(((int) index + neighbor_offset) >= 0 && ((int) index + neighbor_offset) < (grid_width * grid_height)) {
+					Vector2 neighbor = *(pvector_at(&points, ((int) index + neighbor_offset)));
+
+					float neighbor_distance = distance(neighbor, testing_point);
+
+					if(neighbor_distance < shortest_distance) {
+						shortest_distance = neighbor_distance;
+						shortest_distance_index = (int) index + neighbor_offset;
+					}
+				}
+			}
+		}
+	}
+
+	return shortest_distance_index;
+}
+
+
+// returns a sorted pvector -- every 3 points is a triangle
+pvector triangulate_points(pvector points, int grid_width, int grid_height) {
+	unsigned int point_count = (unsigned int) pvector_size(&points);
+	unsigned int starting_index = rand() % point_count;
+
+	pvector output = { 0 };
+	pvector_push(&output, *(pvector_at(&points, starting_index)));
+
+	unsigned int used_indicies[(int) point_count] = { 0 };
+	unsigned int used_index_count = 0;
+
+	// manually populate the first three elements
+	used_indicies[used_index_count] = starting_index;
+	used_index_count++;
+
+	used_indicies[used_index_count] = closest_to(points, used_indicies, used_index_count, used_indicies[used_index_count - 1], grid_width, grid_height);
+	used_index_count++;
+
+	used_indicies[used_index_count] = closest_to(points, used_indicies, used_index_count, used_indicies[used_index_count - 1], grid_width, grid_height);
+	used_index_count++;
+
+	pvector_push(&output, *(pvector_at(&points, used_indicies[0])));
+	pvector_push(&output, *(pvector_at(&points, used_indicies[1])));
+	pvector_push(&output, *(pvector_at(&points, used_indicies[2])));
+
+	unsigned int iter = 0;
+	while(used_index_count < (point_count - 1) && iter < TRIANGULATION_ITER_MAX) {
+
+		unsigned int next_index = closest_to(points, used_indicies, used_index_count, used_indicies(used_index_count - 1), grid_width, grid_height);
+
+		float dist_a = index_distance(&points, next_index, );
+		iter++;
+	}
+
+	return output;
+}
+
 
 int main(void) {
 
