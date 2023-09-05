@@ -172,26 +172,16 @@ unsigned int closest_to(pvector points, unsigned int excluded_indices[], unsigne
 
 
 // returns a sorted pvector -- every 3 points is a triangle
-pvector triangulate_points(pvector points, int grid_width, int grid_height) {
+ivector triangulate_points(pvector points, int grid_width, int grid_height) {
 	unsigned int point_count = (unsigned int) pvector_size(&points);
 	unsigned int starting_index = rand() % point_count;
 
-	pvector output = { 0 };
-	pvector_push(&output, *(pvector_at(&points, starting_index)));
-
 	ivector indicies = { 0 };
 
-	unsigned int used_indicies[(int) point_count] = { 0 };
-	unsigned int used_index_count = 0;
-
 	// manually populate the first three elements
-	used_indicies[used_index_count] = starting_index;
-	used_index_count++;
 	ivector_push(&indicies, starting_index);
 
-	used_indicies[used_index_count] = closest_to(points, used_indicies, used_index_count, used_indicies[used_index_count - 1], grid_width, grid_height);
-	ivector(&indicies, used_indicies[used_index_count]);
-	used_index_count++;
+	ivector(&indicies, closest_to(points, used_indicies, used_index_count, used_indicies[used_index_count - 1], grid_width, grid_height));
 
 	used_indicies[used_index_count] = closest_to(points, used_indicies, used_index_count, used_indicies[used_index_count - 1], grid_width, grid_height);
 	ivector(&indicies, used_indicies[used_index_count]);
@@ -210,11 +200,31 @@ pvector triangulate_points(pvector points, int grid_width, int grid_height) {
 		float dist_b = index_distance(&points, next_index, (int) *(ivector_at(&indicies, (int) ivector_size(&indicies) - 2)));
 		float dist_c = index_distance(&points, next_index, (int) *(ivector_at(&indicies, (int) ivector_size(&indicies) - 3)));
 
+		float smallest_distance = dist_a;
+
+		if(dist_b < smallest_distance) smallest_distance = dist_b;
+		if(dist_c < smallest_distance) smallest_distance = dist_c;
+
+		float largest_distance = dist_a;
+
+		if(dist_b > largest_distance) largest_distance = dist_b;
+		if(dist_c > largest_distance) largest_distance = dist_c;
+
+		float middle_distance = dist_a;
+
+		if(dist_b != largest_distance && dist_b != smallest_distance) middle_distance = dist_b;
+		if(dist_c != largest_distance && dist_c != smallest_distance) middle_distance = dist_c;
+
+		// next triangle is { next_index, smallest_distance, middle_distance };
+
+		ivector_push(&indicies, next_index);
+		ivector_push(&indicies, largest_distance);
+		ivector_push(&indicies, smallest_distance);
 
 		iter++;
 	}
 
-	return output;
+	return indicies;
 }
 
 
@@ -225,6 +235,11 @@ int main(void) {
 	int poisson_point_count = pvector_size(&poisson_points);
 
 	printf("Poisson points are finished generating!\n");
+
+	ivector triangulated_points = triangulate_points(poisson_points, WIDTH / CELLSIZE, HEIGHT / CELLSIZE);
+	int triangle_point_count = ivector_size(&triangulated_points);
+
+	printf("Triangle points are finished generating!\n");
 
 	InitWindow(WIDTH, HEIGHT, "The Game of all time");
 	SetTargetFPS(150);
@@ -238,6 +253,11 @@ int main(void) {
 			poisson_points = generate_poisson_points(WIDTH / CELLSIZE, HEIGHT / CELLSIZE);
 			poisson_point_count = pvector_size(&poisson_points);
 			printf("Poisson points regenerated!\n");
+
+			triangulated_points = triangulate_points(poisson_points, WIDTH / CELLSIZE, HEIGHT / CELLSIZE);
+			triangle_point_count = ivector_size(&triangulated_points);
+
+			printf("Triangle points are finished generating!\n");
 		}
 
 		BeginTextureMode(target);
@@ -248,6 +268,14 @@ int main(void) {
 				if(px.x != -1 && px.y != -1) {
 					DrawPixelV(px, RED);
 				}
+			}
+
+			for(int i = 0; i < triangle_point_count; i++) {
+				Vector2 a = poisson_points.data[*(ivector_at(&triangulated_points, i))];
+				Vector2 b = poisson_points.data[*(ivector_at(&triangulated_points, i + 1))];
+				Vector2 c = poisson_points.data[*(ivector_at(&triangulated_points, i + 2))];
+
+				DrawTriangleLines(a, b, c, RAYWHITE);
 			}
 
 		EndTextureMode();
