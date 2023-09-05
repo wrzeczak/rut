@@ -44,6 +44,10 @@ Vector2 Vector2_clone(Vector2 vec) {
 #include "stc/cvec.h"
 // github.com/stclib/STC/blob/master/docs/cvec_api.md
 
+#define i_type ivector
+#define i_key int
+#include "stc/cvec.h"
+
 //------------------------------------------------------------------------------
 
 // Vector2 and pvector utility functions
@@ -175,17 +179,22 @@ pvector triangulate_points(pvector points, int grid_width, int grid_height) {
 	pvector output = { 0 };
 	pvector_push(&output, *(pvector_at(&points, starting_index)));
 
+	ivector indicies = { 0 };
+
 	unsigned int used_indicies[(int) point_count] = { 0 };
 	unsigned int used_index_count = 0;
 
 	// manually populate the first three elements
 	used_indicies[used_index_count] = starting_index;
 	used_index_count++;
+	ivector_push(&indicies, starting_index);
 
 	used_indicies[used_index_count] = closest_to(points, used_indicies, used_index_count, used_indicies[used_index_count - 1], grid_width, grid_height);
+	ivector(&indicies, used_indicies[used_index_count]);
 	used_index_count++;
 
 	used_indicies[used_index_count] = closest_to(points, used_indicies, used_index_count, used_indicies[used_index_count - 1], grid_width, grid_height);
+	ivector(&indicies, used_indicies[used_index_count]);
 	used_index_count++;
 
 	pvector_push(&output, *(pvector_at(&points, used_indicies[0])));
@@ -195,9 +204,13 @@ pvector triangulate_points(pvector points, int grid_width, int grid_height) {
 	unsigned int iter = 0;
 	while(used_index_count < (point_count - 1) && iter < TRIANGULATION_ITER_MAX) {
 
-		unsigned int next_index = closest_to(points, used_indicies, used_index_count, used_indicies(used_index_count - 1), grid_width, grid_height);
+		unsigned int next_index = closest_to(points, used_indicies, used_index_count, (int) *(ivector_at(&indicies, (int) ivector_size(&indicies) - 1)), grid_width, grid_height);
 
-		float dist_a = index_distance(&points, next_index, );
+		float dist_a = index_distance(&points, next_index, (int) *(ivector_at(&indicies, (int) ivector_size(&indicies) - 1)));
+		float dist_b = index_distance(&points, next_index, (int) *(ivector_at(&indicies, (int) ivector_size(&indicies) - 2)));
+		float dist_c = index_distance(&points, next_index, (int) *(ivector_at(&indicies, (int) ivector_size(&indicies) - 3)));
+
+
 		iter++;
 	}
 
